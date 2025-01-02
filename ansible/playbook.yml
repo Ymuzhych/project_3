@@ -1,0 +1,6 @@
+---
+- hosts: ec2_instance
+  roles:
+    - prometheus
+    - node_exporter
+    - grafana

@@ -1,0 +1,44 @@
+---
+- name: Download Node Exporter
+  become: true
+  get_url:
+    url: "https://github.com/prometheus/node_exporter/releases/download/v1.6.0/node_exporter-1.6.0.linux-amd64.tar.gz"
+    dest: /tmp/node_exporter.tar.gz
+
+- name: Extract Node Exporter
+  become: true
+  ansible.builtin.unarchive:
+    src: /tmp/node_exporter.tar.gz
+    dest: /usr/local/bin/
+    remote_src: yes
+
+- name: Move Node Exporter binary
+  become: true
+  shell: |
+    mv /usr/local/bin/node_exporter-1.6.0.linux-amd64/node_exporter /usr/local/bin/
+  args:
+    creates: /usr/local/bin/node_exporter
+
+- name: Create Node Exporter systemd service
+  become: true
+  copy:
+    dest: /etc/systemd/system/node_exporter.service
+    content: |
+      [Unit]
+      Description=Prometheus Node Exporter
+      After=network.target
+
+      [Service]
+      User=nobody
+      ExecStart=/usr/local/bin/node_exporter
+
+      [Install]
+      WantedBy=multi-user.target
+
+- name: Reload systemd and start Node Exporter
+  become: true
+  systemd:
+    daemon_reload: yes
+    name: node_exporter
+    enabled: yes
+    state: started

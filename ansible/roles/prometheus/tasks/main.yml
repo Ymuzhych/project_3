@@ -1,0 +1,55 @@
+---
+- name: Download Prometheus binary
+  get_url:
+    url: "https://github.com/prometheus/prometheus/releases/download/v2.47.0/prometheus-2.47.0.linux-amd64.tar.gz"
+    dest: /tmp/prometheus.tar.gz
+
+- name: Extract Prometheus binary
+  become: true
+  ansible.builtin.unarchive:
+    src: /tmp/prometheus.tar.gz
+    dest: /usr/local/bin/
+    remote_src: yes
+
+- name: Create Prometheus configuration directory
+  become: true
+  file:
+    path: /etc/prometheus
+    state: directory
+    mode: '0755'
+
+- name: Move Prometheus binaries to appropriate directories
+  become: true
+  shell: |
+    mv /usr/local/bin/prometheus-2.47.0.linux-amd64/prometheus /usr/local/bin/
+    mv /usr/local/bin/prometheus-2.47.0.linux-amd64/promtool /usr/local/bin/
+    mv /usr/local/bin/prometheus-2.47.0.linux-amd64/*.yml /etc/prometheus/
+    mv /usr/local/bin/prometheus-2.47.0.linux-amd64/console_libraries /etc/prometheus/
+    mv /usr/local/bin/prometheus-2.47.0.linux-amd64/consoles /etc/prometheus/
+  args:
+    creates: /usr/local/bin/prometheus
+
+- name: Create Prometheus systemd service
+  become: true
+  copy:
+    dest: /etc/systemd/system/prometheus.service
+    content: |
+      [Unit]
+      Description=Prometheus Monitoring
+      After=network.target
+
+      [Service]
+      User=prometheus
+      ExecStart=/usr/local/bin/prometheus --config.file=/etc/prometheus/prometheus.yml --storage.tsdb.path=/var/lib/prometheus --web.console.templates=/etc/prometheus/consoles --web.console.libraries=/etc/prometheus/console_libraries
+
+      [Install]
+      WantedBy=multi-user.target
+
+- name: Reload systemd and start Prometheus
+  become: true
+  systemd:
+    daemon_reload: yes
+    name: prometheus
+    enabled: yes
+    state: started
+
